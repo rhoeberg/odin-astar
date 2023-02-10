@@ -233,8 +233,8 @@ main :: proc() {
 		// GUI
 
 		// process astar
-		step_delay := 0.05
-		by_step := false 
+		step_delay := 0.1
+		by_step := true 
 		if !done_pathfinding {
 			if last_step + step_delay < rl.GetTime() {
 				status := 2
@@ -271,7 +271,7 @@ main :: proc() {
 				pos_x := i32(x * TILE_SIZE)
 				pos_y := i32(y * TILE_SIZE)
 				if world.tiles[x][y] {
-					rl.DrawRectangle(pos_x, pos_y, TILE_SIZE, TILE_SIZE, rl.BLUE)
+					rl.DrawRectangle(pos_x, pos_y, TILE_SIZE, TILE_SIZE, rl.DARKBLUE)
 				}
 				else {
 					rl.DrawRectangle(pos_x, pos_y, TILE_SIZE, TILE_SIZE, rl.BROWN)
@@ -284,7 +284,7 @@ main :: proc() {
 		for pos in path {
 			pos_x := i32(pos.x * TILE_SIZE)
 			pos_y := i32(pos.y * TILE_SIZE)
-			rl.DrawRectangle(pos_x, pos_y, TILE_SIZE, TILE_SIZE, rl.YELLOW)
+			rl.DrawRectangle(pos_x, pos_y, TILE_SIZE, TILE_SIZE, rl.LIGHTGRAY)
 		}
 
 		// draw start
