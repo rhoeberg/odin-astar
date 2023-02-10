@@ -6,10 +6,10 @@ import "core:container/priority_queue"
 import rl "vendor:raylib"
 
 World_Pos :: [2]int
-WORLD_SIZE :: 12
+WORLD_SIZE :: 10
 SCREEN_WIDTH :: 800
-SCREEN_HEIGHT :: 600
-TILE_SIZE :: 40
+SCREEN_HEIGHT :: 800
+TILE_SIZE :: SCREEN_WIDTH / WORLD_SIZE
 
 World :: struct {
 	tiles: [WORLD_SIZE][WORLD_SIZE]bool,
@@ -20,24 +20,79 @@ World :: struct {
 Node :: struct {
 	pos: World_Pos,
 	weight: int,
-	/* prev: ^Node, */
 	prev: World_Pos,
 }
 
 
-/* nodes: [dynamic]Node */
 nodes: map[World_Pos]Node
-/* pq: priority_queue.Priority_Queue(int) */
 pq: priority_queue.Priority_Queue(World_Pos)
 
 world: World
 path: [dynamic]World_Pos
 done_pathfinding: bool
 
+print_world :: proc() {
+	sb : strings.Builder
+	for column in 0..<WORLD_SIZE {
+		for row in 0..<WORLD_SIZE {
+			if (world.goal == World_Pos{column, row}) {
+				fmt.sbprint(&sb, "[2]")
+			}
+			else if (world.start == World_Pos{column, row}) {
+				fmt.sbprint(&sb, "[1]")
+			}
+			else if world.tiles[column][row] {
+				fmt.sbprint(&sb, "[x]")
+			}
+			else {
+				fmt.sbprint(&sb, "[0]")
+			}
+		}
+		fmt.sbprint(&sb, "\n")
+	}
+
+	fmt.print(strings.to_string(sb))
+}
+
+reset_world :: proc() {
+	done_pathfinding = false
+	priority_queue.clear(&pq)
+	clear(&nodes)
+
+	world.goal.x = int(rl.GetRandomValue(0, WORLD_SIZE - 1))
+	world.goal.y = int(rl.GetRandomValue(0, WORLD_SIZE - 1))
+
+	for {
+		world.start.x = int(rl.GetRandomValue(0, WORLD_SIZE - 1))
+		world.start.y = int(rl.GetRandomValue(0, WORLD_SIZE - 1))
+		if world.start != world.goal {
+			start_node := Node{world.start, 0, world.start}
+			add_node(start_node)
+			break
+		}
+	}
+
+
+	for column in 0..<WORLD_SIZE {
+		for row in 0..<WORLD_SIZE {
+			world.tiles[column][row] = true
+		}
+	}
+
+	for i in 0..<10 {
+		pos : World_Pos
+		pos.x = int(rl.GetRandomValue(0, WORLD_SIZE - 1))
+		pos.y = int(rl.GetRandomValue(0, WORLD_SIZE - 1))
+		if pos != world.goal && pos != world.start {
+			world.tiles[pos.x][pos.y] = false
+		}
+	}
+}
+
 my_less :: proc(a: World_Pos, b: World_Pos) -> bool {
 	a_node := nodes[a]
 	b_node := nodes[b]
-	return a_node.weight < b_node.weight
+	return a_node.weight + dist_from_goal(a, world.goal) < b_node.weight + dist_from_goal(b, world.goal)
 }
 
 
@@ -46,20 +101,15 @@ dist_from_goal :: proc(pos: World_Pos, goal: World_Pos) -> int {
 }
 
 calc_node_weight :: proc(prev: World_Pos, pos: World_Pos) -> int {
-	return nodes[prev].weight + dist_from_goal(pos, world.goal) 
+	return nodes[prev].weight + 1
 }
 
 add_node :: proc(node: Node) {
-	/* append(&nodes, node) */
 	nodes[node.pos] = node
-	/* priority_queue.push(&pq, len(nodes)-1) */
 	priority_queue.push(&pq, node.pos)
 }
 
 astar :: proc(path: ^[dynamic]World_Pos) -> int {
-
-	/* sb : strings.Builder */
-
 	valid_node_pos :: proc(pos: World_Pos) -> bool {
 		if (pos.x < WORLD_SIZE && pos.x >= 0) {
 			if pos.y < WORLD_SIZE && pos.y >= 0 {
@@ -75,7 +125,6 @@ astar :: proc(path: ^[dynamic]World_Pos) -> int {
 
 	try_to_add_node :: proc(prev: World_Pos, pos: World_Pos) {
 		if valid_node_pos(pos) {
-			/* fmt.println("adding node:", pos) */
 			node := Node{pos=pos, weight=calc_node_weight(prev, pos), prev=prev}
 			add_node(node)
 		}
@@ -116,23 +165,8 @@ astar :: proc(path: ^[dynamic]World_Pos) -> int {
 		lowest_score := 0 
 		lowest_id := 0
 		for i in 0..<count {
-			/* if (node.prev == nil || new_positions[i] != node.prev.pos) && new_positions[i] != world.start { */
-				try_to_add_node(node.pos, new_positions[i])
-			/* } */
+			try_to_add_node(node.pos, new_positions[i])
 		}
-		/* 	if i == 0 { */
-		/* 		lowest_score = calc_node_weight(node, new_positions[i]) */
-		/* 	} */
-		/* 	else { */
-		/* 		new_score := calc_node_weight(node, new_positions[i]) */
-		/* 		if new_score < lowest_score { */
-		/* 			lowest_score = new_score */
-		/* 			lowest_id = i */
-		/* 		} */
-		/* 	} */
-		/* } */
-
-		/* try_to_add_node(node, new_positions[lowest_id]) */
 	}
 
 	expand_node :: proc() -> (int, ^Node) {
@@ -155,47 +189,14 @@ astar :: proc(path: ^[dynamic]World_Pos) -> int {
 	path_node : ^Node
 	status : int
 
-	found_goal := false
-	/* for !found_goal { */
-		status, path_node = expand_node()
-		switch status {
-		case 0:
-			fmt.println("could not find goal")
-			break
-		case 1:
-			fmt.println("found goal")
-			found_goal = true
-		case 2:
-			/* fmt.println("still looking, queue size:", len(pq.queue)) */
-		}
-		
-		/* if priority_queue.len(pq) > 0 { */
-		/* 	node := &nodes[priority_queue.pop(&pq)] */
-		/* 	if node.pos == world.goal { */
-		/* 		// found the path */
-		/* 		fmt.println("found goal") */
-		/* 		found_goal = true */
-		/* 		path_node = node */
-		/* 		break */
-		/* 	} */
-		/* 	else { */
-		/* 		add_nodes_around_to_queue(node) */
-		/* 	} */
-		/* } */
-		/* else { */
-		/* 	fmt.println("could not find goal") */
-		/* 	break */
-		/* } */
-	/* } */
+	status, path_node = expand_node()
 
 	clear(path)
 	if status != 0 && path_node != nil {
-		/* fmt.println("writing path") */
+		append(path, path_node.pos)
+
 		done_rewind := false
 		for !done_rewind {
-			/* fmt.print("status:") */
-			/* fmt.print("pos:", path_node.pos) */
-			/* fmt.println("prev:", path_node.prev) */
 			if path_node.prev == world.start {
 				done_rewind = true
 			}
@@ -212,112 +213,46 @@ astar :: proc(path: ^[dynamic]World_Pos) -> int {
 	return status
 }
 
-print_world :: proc() {
-	sb : strings.Builder
-	for column in 0..<WORLD_SIZE {
-		for row in 0..<WORLD_SIZE {
-			if (world.goal == World_Pos{column, row}) {
-				fmt.sbprint(&sb, "[2]")
-			}
-			else if (world.start == World_Pos{column, row}) {
-				fmt.sbprint(&sb, "[1]")
-			}
-			else if world.tiles[column][row] {
-				fmt.sbprint(&sb, "[x]")
-			}
-			else {
-				fmt.sbprint(&sb, "[0]")
-			}
-		}
-		fmt.sbprint(&sb, "\n")
-	}
-
-	fmt.print(strings.to_string(sb))
-}
-
-reset_world :: proc() {
-	fmt.println("SETTING UP NEW WORLD")
-
-	done_pathfinding = false
-
-	priority_queue.clear(&pq)
-	/* clear(&path) */
-	clear(&nodes)
-
-
-	/* world.goal.x = int(rl.GetRandomValue(0, WORLD_SIZE - 1)) */
-	/* world.goal.y = int(rl.GetRandomValue(0, WORLD_SIZE - 1)) */
-	/* world.goal = World_Pos{ WORLD_SIZE-1, WORLD_SIZE-1} */
-
-	world.goal.x = 10
-	world.goal.y = 3
-
-
-	world.start = World_Pos{ 3, 10}
-	start_node := Node{world.start, 0, world.start}
-	add_node(start_node)
-
-	/* for { */
-	/* 	world.start.x = int(rl.GetRandomValue(0, WORLD_SIZE - 1)) */
-	/* 	world.start.y = int(rl.GetRandomValue(0, WORLD_SIZE - 1)) */
-	/* 	if world.start != world.goal { */
-	/* 		start_node := Node{world.start, 0, nil} */
-	/* 		add_node(start_node) */
-	/* 		break */
-	/* 	} */
-	/* } */
-
-
-	for column in 0..<WORLD_SIZE {
-		for row in 0..<WORLD_SIZE {
-			world.tiles[column][row] = true
-		}
-	}
-
-
-
-	world.tiles[3][7] = false
-	world.tiles[5][3] = false
-	/* for i in 0..<10 { */
-	/* 	pos : World_Pos */
-	/* 	pos.x = int(rl.GetRandomValue(0, WORLD_SIZE - 1)) */
-	/* 	pos.y = int(rl.GetRandomValue(0, WORLD_SIZE - 1)) */
-	/* 	if pos != world.goal && pos != world.start { */
-	/* 		world.tiles[pos.x][pos.y] = false */
-	/* 	} */
-	/* } */
-	print_world()
-
-	/* astar(&path) */
-}
-
 main :: proc() {
 
 	nodes = make(map[World_Pos]Node)
 	priority_queue.init(&pq, my_less, priority_queue.default_swap_proc(World_Pos))
 
-	rl.InitWindow(i32(SCREEN_WIDTH), i32(SCREEN_HEIGHT), "zapper")
+	rl.InitWindow(i32(SCREEN_WIDTH), i32(SCREEN_HEIGHT), "Odin Astar")
 	defer rl.CloseWindow()
 
 	reset_world()
 
+	last_step := rl.GetTime()
 
 	for !rl.WindowShouldClose() {
 		rl.BeginDrawing()
 		defer rl.EndDrawing()
 
 
+		// GUI
+
 		// process astar
-		/* @(static) done: bool = false */
+		step_delay := 0.05
+		by_step := false 
 		if !done_pathfinding {
-			if rl.IsKeyPressed(.SPACE) {
-				status := astar(&path)
-				switch status {
-				case 0:
-					done_pathfinding = true
-				case 1:
-					done_pathfinding = true
-				case 2:
+			if last_step + step_delay < rl.GetTime() {
+				status := 2
+				for status == 2 {
+					status = astar(&path)
+					switch status {
+					case 0:
+						done_pathfinding = true
+					case 1:
+						done_pathfinding = true
+					case 2:
+					}
+
+
+					if by_step {
+						last_step = rl.GetTime()
+						break
+					}
 				}
 			}
 		}
