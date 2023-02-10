@@ -4,4 +4,4 @@ Example implementation of A* algorithm made using the Odin programming langauge 
 
 (press 'r' to generate new random path)
 
-![2023-02-10 16_57_23-Odin Astar](https://user-images.githubusercontent.com/12597079/218137522-f483e524-7182-4683-9f6a-360a04255818.png)
+![2023-02-10 17_19_25-Window](https://user-images.githubusercontent.com/12597079/218142174-def2c1f6-a6f7-4749-a610-7a8c90db5790.png)
